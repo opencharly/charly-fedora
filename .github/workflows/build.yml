@@ -116,14 +116,7 @@ jobs:
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws:ro" fedora:43 bash -c '
             set -e
-            cat > /etc/yum.repos.d/charly.repo <<EOF
-[charly]
-name=charly
-baseurl=file:///ws/repo/amd64
-enabled=1
-gpgcheck=1
-gpgkey=file:///ws/RPM-GPG-KEY-charly
-EOF
+            printf "[charly]\nname=charly\nbaseurl=file:///ws/repo/amd64\nenabled=1\ngpgcheck=1\ngpgkey=file:///ws/RPM-GPG-KEY-charly\n" > /etc/yum.repos.d/charly.repo
             dnf install -y charly
             test "$(charly version)" = "$VERSION" || { echo "version mismatch: $(charly version) != $VERSION"; exit 1; }
             cd /tmp && charly doctor
