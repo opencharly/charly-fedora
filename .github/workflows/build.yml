@@ -114,7 +114,7 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          docker run --rm -v "${{ github.workspace }}:/ws:ro" fedora:43 bash -c '
+          docker run --rm -e VERSION="$VERSION" -v "${{ github.workspace }}:/ws:ro" fedora:43 bash -c '
             set -e
             printf "[charly]\nname=charly\nbaseurl=file:///ws/repo/amd64\nenabled=1\ngpgcheck=1\ngpgkey=file:///ws/RPM-GPG-KEY-charly\n" > /etc/yum.repos.d/charly.repo
             dnf install -y charly
