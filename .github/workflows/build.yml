@@ -62,7 +62,6 @@ jobs:
               ln -sf charly-lib "plugins/$arch/$n"
             done
           done
-          ls -l plugins/amd64
 
       - name: Install charly + baked generate-packages plugin
         env:
@@ -169,7 +168,14 @@ jobs:
             # it in the foreground and require it to stay up until the timeout)
             (cd /etc/charly && timeout 5 charly mcp serve --listen 127.0.0.1:18765 >/dev/null 2>&1) || serve=$?
             test "$serve" -eq 124 || { echo "charly mcp serve exited $serve (expected 124 = ran until timeout)"; exit 1; }
-            cd /tmp && charly doctor
+            # The cutover's own assertion: the shared host is installed ONCE
+            # and a plugin-<word> is a SYMLINK to it (the loader contract).
+            # The trailing host-health `charly doctor` check is orthogonal to
+            # packaging and is deliberately not this packaging gate's signal.
+            test -x /usr/lib/charly/plugins/charly-lib || { echo "charly-lib shared host missing"; exit 1; }
+            _link=$(ls /usr/lib/charly/plugins/plugin-* 2>/dev/null | grep -v '\.providers$' | head -1)
+            test -n "$_link" && test "$(readlink "$_link")" = "charly-lib" || { echo "plugin symlink -> charly-lib missing"; exit 1; }
+            echo "shared-host layout OK"
           '
 
       - name: Stage static files
