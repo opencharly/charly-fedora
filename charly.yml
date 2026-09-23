@@ -1,0 +1,103 @@
+# charly-fedora — the Fedora package repository for charly.
+#
+# This project exists so this repo OWNS the R10 bed that proves its own
+# published artifact: check-fedora-repo boots a disposable Fedora Cloud VM,
+# adds the published charly dnf repo (opencharly.github.io/charly-fedora),
+# installs the packaged charly, and asserts the installed binary's version
+# equals the version the package manager recorded. The bed was relocated here
+# from opencharly/charly's charly.yml — the artifact owner is the repo that
+# publishes the repo.
+version: 2026.249.2125
+repo: github.com/opencharly/charly-fedora
+defaults:
+    platform:
+        - linux/amd64
+    tag: auto
+    registry: ghcr.io/opencharly
+    build:
+        - rpm
+    merge:
+        auto: false
+        max_mb: 128
+
+# fedora-repo-vm — the disposable Fedora Cloud VM the repo-install bed boots.
+fedora-repo-vm:
+    vm:
+        source:
+            kind: cloud_image
+            distro: fedora
+            url: https://download.fedoraproject.org/pub/fedora/linux/releases/43/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-43-1.6.x86_64.qcow2
+            base_user: fedora
+        backend: libvirt
+        disk_size: 20G
+        ram: 4G
+        cpu: 2
+        machine: q35
+        firmware: bios
+        ssh:
+            port_auto: true
+            key_source: generate
+        cloud_init:
+            timezone: UTC
+            package:
+                - sudo
+check-fedora-repo:
+    vm:
+        from: fedora-repo-vm
+        disposable: true
+        lifecycle: dev
+        description: >-
+            Proves the repo-based install from the published charly-fedora dnf repo (opencharly.github.io/charly-fedora) — the R10 acceptance for the nFPM packaging cutover's Fedora leg. Boots the disposable Fedora Cloud 43 VM, adds the charly .repo, `dnf install charly`, asserts the PACKAGED /usr/bin/charly reports the same version the package manager recorded for the installed package, and proves the welded command plugins dispatch project-less from /tmp.
+        install_opts:
+            allow_repo_changes: true
+            allow_root_tasks: true
+        plan:
+            - check: the charly dnf repo is added
+              id: fedora-repo-added
+              exit_status: 0
+              context:
+                - runtime
+              command: |
+                sudo tee /etc/yum.repos.d/charly.repo >/dev/null <<'EOF'
+                [charly]
+                name=charly
+                baseurl=https://opencharly.github.io/charly-fedora/amd64
+                enabled=1
+                gpgcheck=1
+                gpgkey=https://opencharly.github.io/charly-fedora/RPM-GPG-KEY-charly
+                EOF
+                grep -q 'charly-fedora' /etc/yum.repos.d/charly.repo
+            - check: dnf install charly installs the package
+              id: fedora-charly-installed
+              timeout: 10m
+              exit_status: 0
+              context:
+                - runtime
+              command: |
+                sudo dnf install -y charly &&
+                rpm -q charly
+            - check: charly version equals the repo's published CalVer
+              id: fedora-charly-version
+              exit_status: 0
+              stdout:
+                - contains: FEDORA-REPO-VERSION-OK
+              context:
+                - runtime
+              command: |
+                installed="$(/usr/bin/charly version)" &&
+                packaged="$(rpm -q charly | sed -n 's/^charly-\([0-9][0-9.]*\)-.*/\1/p')" &&
+                echo "installed=[$installed] packaged=[$packaged]" &&
+                test -n "$installed" && test -n "$packaged" &&
+                test "$installed" = "$packaged" &&
+                echo FEDORA-REPO-VERSION-OK
+            - check: the welded command plugins dispatch project-less from /tmp
+              id: fedora-welded-command-project-less
+              exit_status: 0
+              stdout:
+                - contains: FEDORA-WELDED-CMD-OK
+              context:
+                - runtime
+              command: |
+                cd /tmp &&
+                charly doctor 2>/dev/null | grep -q 'Summary:' &&
+                echo FEDORA-WELDED-CMD-OK
