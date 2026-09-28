@@ -7,7 +7,6 @@
 # equals the version the package manager recorded. The bed was relocated here
 # from opencharly/charly's charly.yml — the artifact owner is the repo that
 # publishes the repo.
-version: 2026.249.2125
 repo: github.com/opencharly/charly-fedora
 defaults:
     platform:
