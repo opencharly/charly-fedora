@@ -161,12 +161,13 @@ jobs:
             fi
             # ...and no enable marker (wants symlink) exists
             test ! -e /etc/systemd/system/multi-user.target.wants/charly-mcp.service || { echo "unexpected enable marker present"; exit 1; }
-            # the shipped system-wide config validates
-            test -f /etc/charly/charly.yml || { echo "/etc/charly/charly.yml missing"; exit 1; }
-            charly box validate -C /etc/charly >/dev/null || { echo "box validate failed"; exit 1; }
+            # the packaged system-wide config was RETIRED (spec#183 + sdk#313): the
+            # package intentionally ships NO /etc/charly content. Assert it is absent,
+            # so a regression that re-adds it fails loudly here.
+            test ! -e /etc/charly/charly.yml || { echo "/etc/charly/charly.yml should NOT be shipped (retired by spec#183)"; exit 1; }
             # the MCP server starts on demand (no systemd in the container: run
             # it in the foreground and require it to stay up until the timeout)
-            (cd /etc/charly && timeout 5 charly mcp serve --listen 127.0.0.1:18765 >/dev/null 2>&1) || serve=$?
+            (cd /tmp && timeout 5 charly mcp serve --listen 127.0.0.1:18765 >/dev/null 2>&1) || serve=$?
             test "$serve" -eq 124 || { echo "charly mcp serve exited $serve (expected 124 = ran until timeout)"; exit 1; }
             # The default variant welded set, asserted EXPLICITLY (independent of
             # the manifest filenames): each plugin-<word> is a symlink to charly-lib
